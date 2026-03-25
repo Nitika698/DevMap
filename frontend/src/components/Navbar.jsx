@@ -13,15 +13,15 @@ function Navbar() {
         <Link to="/" className="hover:text-blue-500 transition duration-200">
           Home
         </Link>
-        <a href="#features" className="hover:text-blue-500 transition duration-200">
+        <a href="/#features" className="hover:text-blue-500 transition duration-200">
           Features
         </a>
-        <a href="#about" className="hover:text-blue-500 transition duration-200">
+        <a href="/#about" className="hover:text-blue-500 transition duration-200">
           About
         </a>
-        <a href="#contact" className="hover:text-blue-500 transition duration-200">
+        <Link to="/contact" className="hover:text-blue-500 transition duration-200">
           Contact
-        </a>
+        </Link>
       </div>
 
       {/* Buttons */}

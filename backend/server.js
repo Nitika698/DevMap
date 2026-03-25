@@ -3,19 +3,25 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 
+const authRoutes = require("./routes/auth");
+const contactRoutes = require("./routes/contactRoutes");
+
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// routes
-app.use("/api/auth", require("./routes/auth"));
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/contact", contactRoutes);
 
-// MongoDB Atlas connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Atlas Connected ✅"))
-  .catch(err => console.log(err));
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log(err));
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
 });
