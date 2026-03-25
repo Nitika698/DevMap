@@ -10,10 +10,19 @@ function Home() {
     <div>
       <Navbar />
       <Hero />
-      <HowItWorks />
-      <Features />
-      <CTA />
-      <Footer />
+
+      <section id="features">
+        <Features />
+      </section>
+
+      <section id="about">
+        <HowItWorks />
+      </section>
+
+      <section id="contact">
+        <CTA />
+        <Footer />
+      </section>
     </div>
   );
 }
