@@ -83,5 +83,53 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+// FORGOT PASSWORD - check if user exists
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
 
+    if (!email) {
+      return res.json({ message: "Please enter your email" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.json({ message: "No account found with this email" });
+    }
+
+    res.json({ message: "User found" });
+  } catch (error) {
+    console.log("Forgot Password Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// RESET PASSWORD
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.json({ message: "Please fill all the details" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.json({ message: "User not found" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.log("Reset Password Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 module.exports = router;

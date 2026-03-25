@@ -101,9 +101,12 @@ function Login() {
           </div>
 
           {/* Forgot Password */}
-          <div className="text-right text-[14px] text-[#2f66b5] cursor-pointer">
-            Forgot Password?
-          </div>
+          <Link
+  to="/forgot-password"
+  className="text-sm text-[#2f66b5] hover:underline text-right block mt-2"
+>
+  Forgot Password?
+</Link>
 
           {/* Button */}
           <button
