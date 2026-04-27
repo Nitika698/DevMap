@@ -6,47 +6,49 @@ load_dotenv()
 
 API_KEY = os.getenv("YOUTUBE_API_KEY")
 
+print("🔑 API KEY:", API_KEY)
+
 
 def get_best_video(query):
+    try:
+        search_url = "https://www.googleapis.com/youtube/v3/search"
 
-    # 🔥 Improve query (VERY IMPORTANT)
-    query = query + " tutorial for beginners"
-
-    url = "https://www.googleapis.com/youtube/v3/search"
-
-    params = {
-        "part": "snippet",
-        "q": query,
-        "maxResults": 10,   # increased results
-        "type": "video",
-        "key": API_KEY
-    }
-
-    response = requests.get(url, params=params)
-    data = response.json()
-
-    print("📺 YOUTUBE RESPONSE:", data)  # DEBUG (optional)
-
-    # ✅ If no results → fallback
-    if "items" not in data or len(data["items"]) == 0:
-        return {
-            "title": f"Search {query} on YouTube",
-            "url": f"https://www.youtube.com/results?search_query={query}"
+        search_params = {
+            "part": "snippet",
+            "q": query + " tutorial",
+            "maxResults": 1,   # 🔥 ALWAYS FIRST VIDEO
+            "type": "video",
+            "key": API_KEY
         }
 
-    # 🔥 SIMPLE & RELIABLE: Pick first video
-    item = data["items"][0]
+        search_res = requests.get(search_url, params=search_params)
+        search_data = search_res.json()
 
-    video_id = item["id"].get("videoId")
+        print("📡 SEARCH RESPONSE:", search_data)
 
-    # Safety check
-    if not video_id:
+        if "items" not in search_data or len(search_data["items"]) == 0:
+            print("❌ No items found")
+            return {
+                "title": f"{query} tutorial",
+                "url": "https://www.youtube.com"
+            }
+
+        item = search_data["items"][0]
+
+        video_id = item["id"]["videoId"]
+
+        url = f"https://www.youtube.com/watch?v={video_id}"
+
+        print("🎥 FINAL VIDEO URL:", url)
+
         return {
-            "title": f"Search {query} on YouTube",
-            "url": f"https://www.youtube.com/results?search_query={query}"
+            "title": item["snippet"]["title"],
+            "url": url
         }
 
-    return {
-        "title": item["snippet"]["title"],
-        "url": f"https://youtube.com/watch?v={video_id}"
-    }
+    except Exception as e:
+        print("❌ YouTube ERROR:", e)
+        return {
+            "title": f"{query} tutorial",
+            "url": "https://www.youtube.com"
+        }
