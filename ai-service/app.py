@@ -1,6 +1,8 @@
+import traceback
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from roadmap.app import generate_full_roadmap
+from quiz.question_engine import generate_questions
 
 app = Flask(__name__)
 CORS(app)
@@ -53,7 +55,41 @@ def generate():
         }), 200
 
     except Exception as e:
-        print("FLASK ERROR:", str(e))
+        print("FLASK ERROR:", e)
+        return jsonify({
+            "status": "error",
+            "message": "Internal server error",
+            "details": str(e)
+        }), 500
+    
+@app.route("/generate-quiz", methods=["POST"])
+def generate_quiz():
+    try:
+        data = request.get_json() or {}
+
+        topic = data.get("topic", "").strip()
+        difficulty = data.get("difficulty", "Beginner").strip()
+        qtype = data.get("qtype", "Theory").strip()
+
+        if not topic:
+            return jsonify({
+                "status": "error",
+                "message": "Topic is required"
+            }), 400
+
+        if not (questions := generate_questions(topic, difficulty, qtype)):
+            return jsonify({
+                "status": "error",
+                "message": "Quiz generation failed"
+            }), 500
+
+        return jsonify({
+            "status": "success",
+            "data": questions
+        }), 200
+
+    except Exception as e:
+        print("QUIZ ERROR:", traceback.format_exc())
         return jsonify({
             "status": "error",
             "message": "Internal server error",
