@@ -11,6 +11,9 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 API_KEY = os.getenv("GROQ_API_KEY_ROADMAP")
 MODEL = os.getenv("MODEL_NAME_ROADMAP")
 
+if not API_KEY:
+    raise ValueError("GROQ_API_KEY_ROADMAP is missing")
+
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 headers = {
