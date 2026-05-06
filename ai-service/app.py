@@ -1,4 +1,5 @@
 import traceback
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from roadmap.app import generate_full_roadmap
@@ -6,6 +7,25 @@ from quiz.question_engine import generate_questions
 
 app = Flask(__name__)
 CORS(app)
+
+
+# ===============================
+# RETRY HELPER (🔥 important)
+# ===============================
+def generate_with_retry(fn, retries=3, delay=2.5):
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            error_str = str(e)
+
+            if "rate_limit" not in error_str and "429" not in error_str:
+                raise e
+            
+            print(f"⏳ Rate limited... retrying ({attempt + 1})")
+            time.sleep(delay)
+
+    raise Exception("AI failed after retries")
 
 
 @app.route("/", methods=["GET"])
@@ -39,15 +59,14 @@ def generate():
                 "message": "Topic is required"
             }), 400
 
-        result = generate_full_roadmap(topic, level, duration)
+        # 🔥 RETRY WRAPPED CALL
+        result = generate_with_retry(
+            lambda: generate_full_roadmap(topic, level, duration)
+        )
 
-        # If AI returned error
+        # 🔥 Force retry if AI returned error (not exception)
         if isinstance(result, dict) and result.get("error"):
-            return jsonify({
-                "status": "error",
-                "message": result.get("error"),
-                "details": result.get("details", "")
-            }), 500
+            raise Exception(result.get("error"))
 
         return jsonify({
             "status": "success",
@@ -55,13 +74,12 @@ def generate():
         }), 200
 
     except Exception as e:
-        print("FLASK ERROR:", e)
+        print("FLASK ERROR:", traceback.format_exc())
         return jsonify({
             "status": "error",
             "message": "Internal server error",
             "details": str(e)
         }), 500
-    
 @app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
     try:
@@ -95,7 +113,6 @@ def generate_quiz():
             "message": "Internal server error",
             "details": str(e)
         }), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
