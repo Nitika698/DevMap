@@ -45,7 +45,7 @@ def get_best_video(query: str) -> dict:
             "q": f"{query} tutorial",
             "maxResults": 5,
             "type": "video",
-            "order": "viewCount",  # Best viewed videos
+            "order": "viewCount",
             "videoEmbeddable": "true",
             "safeSearch": "moderate",
             "key": API_KEY,
@@ -66,12 +66,13 @@ def get_best_video(query: str) -> dict:
         items = data.get("items", [])
 
         if not items:
+            print(f"[INFO] No videos found for: {query}")
             return fallback_video(query)
 
-        # Pick best ranked video
+        # Pick top ranked video
         best_video = items[0]
 
-        # Correct extraction
+        # Extract correct video ID
         video_id = (
             best_video
             .get("id", {})
@@ -79,11 +80,15 @@ def get_best_video(query: str) -> dict:
         )
 
         if not video_id:
+            print(f"[INFO] Invalid video ID for: {query}")
             return fallback_video(query)
 
+        # Direct video URL
         video_url = (
             f"https://www.youtube.com/watch?v={video_id}"
         )
+
+        print("FINAL VIDEO URL:", video_url)
 
         return {
             "title": (

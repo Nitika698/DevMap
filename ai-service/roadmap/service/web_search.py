@@ -70,7 +70,7 @@ def calculate_article_score(title: str, link: str) -> int:
         if keyword in title:
             score += 200
 
-    # Penalize poor-quality sites
+    # Penalize low-quality pages
     spam_keywords = [
         "download",
         "pdf",
@@ -93,6 +93,12 @@ def get_best_article(query: str) -> dict:
 
     try:
 
+        query = query.strip()
+
+        if not query:
+            return fallback_article("General")
+
+        # Missing API credentials
         if not API_KEY or not CX:
             print(
                 "[WARNING] Missing Google Search API "
@@ -122,9 +128,12 @@ def get_best_article(query: str) -> dict:
 
         data = response.json()
 
+        print("GOOGLE SEARCH RESPONSE:", data)
+
         items = data.get("items", [])
 
         if not items:
+            print(f"[INFO] No articles found for: {query}")
             return fallback_article(query)
 
         best_article = None
@@ -147,6 +156,11 @@ def get_best_article(query: str) -> dict:
         if not best_article:
             return fallback_article(query)
 
+        print(
+            "BEST ARTICLE:",
+            best_article.get("link", "")
+        )
+
         return {
             "title": best_article.get(
                 "title",
@@ -155,7 +169,16 @@ def get_best_article(query: str) -> dict:
             "url": best_article.get("link", "")
         }
 
+    except requests.exceptions.Timeout:
+        print(f"[TIMEOUT ERROR] {query}")
+
+    except requests.exceptions.HTTPError as err:
+        print(f"[HTTP ERROR] {query}: {err}")
+
+    except requests.exceptions.RequestException as err:
+        print(f"[REQUEST ERROR] {query}: {err}")
+
     except Exception as err:
-        print(f"[ARTICLE ERROR] {query}: {err}")
+        print(f"[UNKNOWN ERROR] {query}: {err}")
 
     return fallback_article(query)
