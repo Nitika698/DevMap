@@ -6,49 +6,104 @@ load_dotenv()
 
 API_KEY = os.getenv("YOUTUBE_API_KEY")
 
-print("🔑 API KEY:", API_KEY)
+SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
 
-def get_best_video(query):
+def fallback_video(query: str) -> dict:
+    """
+    Return fallback YouTube search URL.
+    """
+
+    return {
+        "title": f"{query} tutorial",
+        "url": (
+            "https://www.youtube.com/results?"
+            f"search_query={query}+tutorial"
+        )
+    }
+
+
+def get_best_video(query: str) -> dict:
+    """
+    Fetch best YouTube tutorial video.
+    """
+
     try:
-        search_url = "https://www.googleapis.com/youtube/v3/search"
 
-        search_params = {
+        query = query.strip()
+
+        if not query:
+            return fallback_video("General")
+
+        # If API key missing
+        if not API_KEY:
+            print("[WARNING] Missing YOUTUBE_API_KEY")
+            return fallback_video(query)
+
+        params = {
             "part": "snippet",
-            "q": query + " tutorial",
-            "maxResults": 1,   # 🔥 ALWAYS FIRST VIDEO
+            "q": f"{query} tutorial",
+            "maxResults": 5,
             "type": "video",
-            "key": API_KEY
+            "order": "viewCount",  # Best viewed videos
+            "videoEmbeddable": "true",
+            "safeSearch": "moderate",
+            "key": API_KEY,
         }
 
-        search_res = requests.get(search_url, params=search_params)
-        search_data = search_res.json()
+        response = requests.get(
+            SEARCH_URL,
+            params=params,
+            timeout=10
+        )
 
-        print("📡 SEARCH RESPONSE:", search_data)
+        response.raise_for_status()
 
-        if "items" not in search_data or len(search_data["items"]) == 0:
-            print("❌ No items found")
-            return {
-                "title": f"{query} tutorial",
-                "url": "https://www.youtube.com"
-            }
+        data = response.json()
 
-        item = search_data["items"][0]
+        print("YOUTUBE RESPONSE:", data)
 
-        video_id = item["id"]["videoId"]
+        items = data.get("items", [])
 
-        url = f"https://www.youtube.com/watch?v={video_id}"
+        if not items:
+            return fallback_video(query)
 
-        print("🎥 FINAL VIDEO URL:", url)
+        # Pick best ranked video
+        best_video = items[0]
+
+        # Correct extraction
+        video_id = (
+            best_video
+            .get("id", {})
+            .get("videoId")
+        )
+
+        if not video_id:
+            return fallback_video(query)
+
+        video_url = (
+            f"https://www.youtube.com/watch?v={video_id}"
+        )
 
         return {
-            "title": item["snippet"]["title"],
-            "url": url
+            "title": (
+                best_video
+                .get("snippet", {})
+                .get("title", f"{query} tutorial")
+            ),
+            "url": video_url
         }
 
-    except Exception as e:
-        print("❌ YouTube ERROR:", e)
-        return {
-            "title": f"{query} tutorial",
-            "url": "https://www.youtube.com"
-        }
+    except requests.exceptions.Timeout:
+        print(f"[TIMEOUT ERROR] {query}")
+
+    except requests.exceptions.HTTPError as err:
+        print(f"[HTTP ERROR] {query}: {err}")
+
+    except requests.exceptions.RequestException as err:
+        print(f"[REQUEST ERROR] {query}: {err}")
+
+    except Exception as err:
+        print(f"[UNKNOWN ERROR] {query}: {err}")
+
+    return fallback_video(query)
