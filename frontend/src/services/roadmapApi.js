@@ -34,3 +34,24 @@ export const updateRoadmapStep = async (roadmapId, step, status) => {
 
   return data;
 };
+
+export const updateResourceComplete = async (roadmapId, stepTitle, resourceLink, completed) => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/roadmaps/${roadmapId}/resource`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ stepTitle, resourceLink, completed })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to update resource");
+  }
+
+  return data;
+};

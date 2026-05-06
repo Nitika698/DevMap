@@ -1,5 +1,39 @@
 const mongoose = require("mongoose");
 
+const resourceSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ["video", "article"],
+    default: "article"
+  },
+  title: String,
+  link: String
+});
+
+const nodeSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true
+  },
+  type: {
+    type: String,
+    enum: ["topic", "subtopic"],
+    default: "subtopic"
+  },
+  status: {
+    type: String,
+    enum: ["red", "yellow", "green"],
+    default: "red"
+  },
+  resources: [resourceSchema],
+  completedResources: [String], 
+  children: []
+});
+
+nodeSchema.add({
+  children: [nodeSchema]
+});
+
 const roadmapSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -23,29 +57,9 @@ const roadmapSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
-  roadmap: [
-    {
-      step: {
-        type: String,
-        required: true
-      },
-      status: {
-        type: String,
-        enum: ["red", "yellow", "green"],
-        default: "red"
-      },
-      resources: [
-        {
-          type: {
-            type: String,
-            enum: ["video", "article"]
-          },
-          title: String,
-          link: String
-        }
-      ]
-    }
-  ],
+
+  roadmap: nodeSchema,
+
   createdAt: {
     type: Date,
     default: Date.now

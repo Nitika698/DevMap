@@ -1,9 +1,6 @@
 const Roadmap = require("../models/Roadmap");
 const { generateRoadmapFromAI } = require("../services/aiService");
 
-// =======================================
-// GET OR CREATE ROADMAP
-// =======================================
 exports.getOrCreateRoadmap = async (req, res) => {
   try {
     const { topic } = req.params;
@@ -22,9 +19,6 @@ exports.getOrCreateRoadmap = async (req, res) => {
     console.log("🎯 Level:", level);
     console.log("⏳ Duration:", duration);
 
-    // =======================================
-    // 1. CHECK DATABASE
-    // =======================================
     let roadmap = await Roadmap.findOne({
       topic: { $regex: new RegExp(`^${cleanTopic}$`, "i") },
       level,
@@ -41,9 +35,6 @@ exports.getOrCreateRoadmap = async (req, res) => {
 
     console.log("⚡ Generating roadmap from AI...");
 
-    // =======================================
-    // 2. CALL AI SERVICE
-    // =======================================
     const aiData = await generateRoadmapFromAI(cleanTopic, level, duration);
 
     console.log("🔥 AI RAW DATA:", JSON.stringify(aiData, null, 2));
@@ -54,45 +45,30 @@ exports.getOrCreateRoadmap = async (req, res) => {
       });
     }
 
-    // =======================================
-    // 3. FORMAT DATA SAFELY
-    // =======================================
-    const steps = [];
-
-    aiData.topics.forEach((mainTopic) => {
-
-      // Main topic
-      if (mainTopic?.name) {
-        steps.push({
-          step: mainTopic.name,
+    const structuredRoadmap = {
+      title: cleanTopic,
+      status: "red",
+      children: aiData.topics.map((mainTopic) => ({
+        title: mainTopic.name || "Untitled Topic",
+        type: "topic",
+        status: "red",
+        resources: mainTopic.resources || [],
+        children: (mainTopic.subtopics || []).map((sub) => ({
+          title: sub.name || "Untitled Subtopic",
+          type: "subtopic",
           status: "red",
-          resources: []
-        });
-      }
+          resources: sub.resources || [],
+          children: [] // future expansion
+        }))
+      }))
+    };
 
-      // Subtopics (SAFE CHECK)
-      if (Array.isArray(mainTopic?.subtopics)) {
-        mainTopic.subtopics.forEach((sub) => {
-          steps.push({
-            step: sub?.name || "Untitled Subtopic",
-            status: "red",
-            resources: sub?.resources || []
-          });
-        });
-      }
-
-    });
-
-    // Prevent empty roadmap
-    if (steps.length === 0) {
+    if (!structuredRoadmap.children.length) {
       return res.status(500).json({
         message: "AI generated empty roadmap"
       });
     }
 
-    // =======================================
-    // 4. SAVE TO DATABASE (SAFE)
-    // =======================================
     try {
       roadmap = await Roadmap.create({
         topic: cleanTopic,
@@ -101,7 +77,7 @@ exports.getOrCreateRoadmap = async (req, res) => {
         description:
           aiData.description ||
           `A personalized roadmap for learning ${cleanTopic}.`,
-        roadmap: steps
+        roadmap: structuredRoadmap
       });
 
       console.log("💾 New roadmap saved");
@@ -158,29 +134,43 @@ exports.updateRoadmapStep = async (req, res) => {
       });
     }
 
-    const updated = await Roadmap.findOneAndUpdate(
-      {
-        _id: id,
-        "roadmap.step": step
-      },
-      {
-        $set: { "roadmap.$.status": status }
-      },
-      { new: true }
-    );
+    const roadmapDoc = await Roadmap.findById(id);
 
-    if (!updated) {
-      return res.status(404).json({
-        message: "Roadmap or step not found"
+      if (!roadmapDoc) {
+        return res.status(404).json({ message: "Roadmap not found" });
+      }
+
+      const updateStatus = (node) => {
+        if (node.title === step) {
+          node.status = status;
+          return true;
+        }
+
+        if (node.children) {
+          for (let child of node.children) {
+            if (updateStatus(child)) return true;
+          }
+        }
+
+        return false;
+      };
+
+      const updated = updateStatus(roadmapDoc.roadmap);
+
+      if (!updated) {
+        return res.status(404).json({
+          message: "Step not found"
+        });
+      }
+
+      await roadmapDoc.save();
+
+      console.log(`📝 Step updated: ${step} → ${status}`);
+
+      return res.status(200).json({
+        message: "Step updated successfully",
+        roadmap: roadmapDoc
       });
-    }
-
-    console.log(`📝 Step updated: ${step} → ${status}`);
-
-    return res.status(200).json({
-      message: "Step updated successfully",
-      roadmap: updated
-    });
 
   } catch (error) {
     console.error("❌ Update Step Error:", error);
@@ -192,9 +182,6 @@ exports.updateRoadmapStep = async (req, res) => {
   }
 };
 
-// =======================================
-// GET ALL ROADMAPS
-// =======================================
 exports.getAllRoadmaps = async (req, res) => {
   try {
     const roadmaps = await Roadmap.find().sort({ createdAt: -1 });
@@ -210,5 +197,61 @@ exports.getAllRoadmaps = async (req, res) => {
       message: "Error fetching roadmaps",
       error: error.message
     });
+  }
+};
+
+exports.updateResourceComplete = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stepTitle, resourceLink, completed } = req.body;
+
+    const roadmapDoc = await Roadmap.findById(id);
+    if (!roadmapDoc) {
+      return res.status(404).json({ message: "Roadmap not found" });
+    }
+
+    const updateNode = (node) => {
+      if (node.title === stepTitle) {
+
+        // Add or remove resource from completedResources
+        if (completed) {
+          if (!node.completedResources.includes(resourceLink)) {
+            node.completedResources.push(resourceLink);
+          }
+        } else {
+          node.completedResources = node.completedResources.filter(
+            (r) => r !== resourceLink
+          );
+        }
+
+        // Auto update status based on how many resources completed
+        const total = node.resources.length;
+        const done = node.completedResources.length;
+
+        if (done === 0) node.status = "red";
+        else if (done < total) node.status = "yellow";
+        else node.status = "green";
+
+        return true;
+      }
+
+      if (node.children) {
+        for (let child of node.children) {
+          if (updateNode(child)) return true;
+        }
+      }
+
+      return false;
+    };
+
+    updateNode(roadmapDoc.roadmap);
+    roadmapDoc.markModified("roadmap");
+    await roadmapDoc.save();
+
+    return res.status(200).json({ roadmap: roadmapDoc });
+
+  } catch (error) {
+    console.error("❌ Resource Update Error:", error);
+    return res.status(500).json({ message: "Error updating resource", error: error.message });
   }
 };

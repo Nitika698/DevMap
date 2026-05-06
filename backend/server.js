@@ -7,6 +7,8 @@ const authRoutes = require("./routes/auth");
 const contactRoutes = require("./routes/contactRoutes");
 
 const roadmapRoutes = require("./routes/roadmapRoutes");
+
+const quizRoutes = require("./routes/quizRoutes");
 const app = express();
 
 // Middleware
@@ -24,6 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/contact", contactRoutes);
 
 app.use("/api/roadmaps", roadmapRoutes);
+app.use("/api/quizzes", quizRoutes);
 
 // Test route
 app.get("/", (req, res) => {
